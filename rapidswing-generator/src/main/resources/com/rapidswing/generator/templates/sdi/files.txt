@@ -1,0 +1,2 @@
+# Single document (SDI) application
+src/main/java/__package__/App.java.tmpl

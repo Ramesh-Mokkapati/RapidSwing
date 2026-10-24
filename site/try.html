@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RapidSwing Demo</title>
+<meta name="description" content="The RapidSwing demo app, running in the browser.">
+<link rel="stylesheet" href="style.css">
+<!-- CheerpJ runs the unchanged demo jar in the browser (WebAssembly); free for personal and open-source use. -->
+<script src="https://cjrtnc.leaningtech.com/4.3/loader.js"></script>
+</head>
+<body class="try">
+<header class="bar">
+  <a href="index.html">&larr; RapidSwing</a>
+  <span class="hint">Sign in with <code>admin</code> / <code>admin123</code> (or <code>sales</code> / <code>sales123</code>,
+    <code>viewer</code> / <code>viewer123</code>)</span>
+</header>
+<p id="status" class="status">Loading the Java runtime in the browser (experimental). The first start downloads it and takes a while; later starts are faster. For the full experience, download the demo and run it with Java.</p>
+<div id="display"></div>
+<script>
+  (async function () {
+    var status = document.getElementById("status");
+    try {
+      await cheerpjInit({ status: "none" });
+      var display = document.getElementById("display");
+      cheerpjCreateDisplay(-1, -1, display);
+      // "/app/" is the root of this web server, so the jar's path includes the folder of this page.
+      var folder = location.pathname.replace(/[^/]*$/, "");
+      status.textContent = "Starting the demo...";
+      setTimeout(function () { status.hidden = true; }, 4000);
+      await cheerpjRunJar("/app" + folder + "rapidswing-demo.jar");
+    } catch (error) {
+      status.hidden = false;
+      status.textContent = "The demo could not start in this browser: " + error
+          + ". Download it from the main page and run it with Java instead.";
+    }
+  })();
+</script>
+</body>
+</html>

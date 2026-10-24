@@ -1,0 +1,58 @@
+package {{package}}.model;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+/** Sample content so the application has something to show. Replace it with your data sources. */
+public final class SampleData {
+
+    /** Folder ids, also used as message keys: outlook.inbox, outlook.sent, outlook.archive. */
+    public static final List<String> FOLDERS = Arrays.asList("inbox", "sent", "archive");
+
+    private SampleData() {
+    }
+
+    public static List<Message> messages() {
+        LocalDateTime now = LocalDateTime.now().withSecond(0).withNano(0);
+        return Arrays.asList(
+                new Message("inbox", "Asha Rao", "Quarterly report", now.minusHours(1),
+                        "Hi,\n\nthe quarterly report is attached. Revenue is up 12%.\n\nBest regards,\nAsha"),
+                new Message("inbox", "Liam Carter", "Lunch on Friday?", now.minusHours(5),
+                        "Are you free for lunch on Friday at 12:30?\n\nLiam"),
+                new Message("inbox", "IT Service Desk", "Scheduled maintenance", now.minusDays(1),
+                        "The mail server will be unavailable on Sunday from 02:00 to 04:00."),
+                new Message("sent", "You", "Re: Lunch on Friday?", now.minusHours(4),
+                        "Friday works for me. See you then!"),
+                new Message("archive", "Mei Tanaka", "Project kickoff notes", now.minusDays(30),
+                        "Notes from the kickoff meeting:\n- Scope agreed\n- Next review in two weeks"));
+    }
+
+    public static List<Message> messages(String folder) {
+        List<Message> inFolder = new ArrayList<>();
+        for (Message message : messages()) {
+            if (message.getFolder().equals(folder)) {
+                inFolder.add(message);
+            }
+        }
+        return inFolder;
+    }
+
+    /** New contacts, without ids. */
+    public static List<Contact> contacts() {
+        return new ArrayList<>(Arrays.asList(
+                new Contact(0, "Asha Rao", "asha.rao@example.com", "+91 40 1234 5678", "Example Corp"),
+                new Contact(0, "Liam Carter", "liam.carter@example.com", "+44 20 7946 0000", "Carter & Co"),
+                new Contact(0, "Mei Tanaka", "mei.tanaka@example.com", "+81 6 1234 5678", "Tanaka Design")));
+    }
+
+    public static List<TaskItem> tasks() {
+        LocalDate today = LocalDate.now();
+        return new ArrayList<>(Arrays.asList(
+                new TaskItem("Review the quarterly report", today, false),
+                new TaskItem("Book the meeting room", today.plusDays(2), false),
+                new TaskItem("Send the kickoff notes", today.minusDays(3), true)));
+    }
+}

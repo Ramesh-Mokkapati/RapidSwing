@@ -1,0 +1,75 @@
+package {{package}};
+
+import com.rapidswing.app.AppConfig;
+{{#if login}}
+import com.rapidswing.security.User;
+{{/if}}
+import com.rapidswing.testing.AppHarness;
+import com.rapidswing.testing.AppHarnessExtension;
+import com.rapidswing.testing.Find;
+import com.rapidswing.testing.Ui;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+
+{{#if documents}}
+import javax.swing.JTextArea;
+{{/if}}
+{{#if outlook}}
+import javax.swing.JTable;
+{{/if}}
+import java.util.Locale;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+{{#if mdi}}
+import static org.junit.jupiter.api.Assertions.assertFalse;
+{{/if}}
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * Opens the main view the way the application does and uses it like a user would. Runs without showing a window;
+ * on a machine without a display (CI without Xvfb) it is skipped.
+ */
+class AppSmokeTest {
+
+    @RegisterExtension
+    final AppHarnessExtension harness = new AppHarnessExtension(new AppConfig().set("app.bundle", "messages"),
+            app -> app.locale(Locale.ENGLISH));
+
+    @Test
+    void mainViewWorks() {
+        AppHarness app = harness.get(){{#if login}}.signIn(User.of("admin", "Administrator", "admin")){{/if}};
+        {{mainView}} view = app.show("main", {{mainView}}::new);
+{{#if sdi}}
+
+        JTextArea editor = Find.in(view).all(JTextArea.class).get(0);
+        Ui.onEdt(() -> editor.setText("Hello"));
+        assertTrue(view.isDirty());
+        assertEquals("Untitled", view.getDocumentName());
+{{/if}}
+{{#if mdi}}
+
+        Ui.onEdt(view::newDocument);
+        DocumentView second = Ui.onEdt(view::newDocument);
+        assertEquals(2, (int) Ui.onEdt(() -> view.getWorkspace().documents().size()));
+        assertEquals(second, Ui.onEdt(view::activeDocument));
+
+        JTextArea editor = Find.in(second).all(JTextArea.class).get(0);
+        Ui.onEdt(() -> editor.setText("Hello"));
+        app.dialogs().answerConfirm(false);
+        assertFalse(Ui.onEdt(view::canLeave), "unsaved changes are protected");
+{{/if}}
+{{#if dialog}}
+
+        Ui.click(Find.in(view).button("Calculate"));
+        assertTrue(view.getResultText().endsWith("per month"), view.getResultText());
+        app.dialogs().assertNoErrors();
+{{/if}}
+{{#if outlook}}
+
+        JTable messages = Find.in(view).all(JTable.class).get(0);
+        assertTrue(messages.getRowCount() > 0);
+        Ui.onEdt(() -> view.showSection("contacts"));
+        assertEquals("contacts", Ui.onEdt(() -> view.getOutlook().currentSection().get()));
+{{/if}}
+    }
+}

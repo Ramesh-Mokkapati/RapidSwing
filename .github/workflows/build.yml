@@ -1,0 +1,77 @@
+# Builds and tests RapidSwing on Linux and Windows with Java 8 (the oldest supported version) and 17.
+# Every run keeps the runnable jars as build artifacts; pushing a tag such as v0.1.0 also publishes them
+# as a GitHub release.
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Java ${{ matrix.java }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        java: ['8', '17']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+
+      - name: Build and test (Linux)
+        if: runner.os != 'Windows'
+        run: bash ./build.sh -- --batch-mode --no-transfer-progress
+
+      - name: Build and test (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: build.cmd -- --batch-mode --no-transfer-progress
+
+      - name: Keep the test reports of a failed build
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-${{ matrix.os }}-java${{ matrix.java }}
+          path: '**/target/surefire-reports/'
+
+      - name: Keep the runnable jars
+        if: matrix.os == 'ubuntu-latest' && matrix.java == '8'
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapidswing-jars
+          path: |
+            rapidswing-demo/target/*-app.jar
+            rapidswing-generator/target/*-app.jar
+
+  release:
+    name: Publish a release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: rapidswing-jars
+          path: jars
+
+      - name: Create the release with the jars
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "$GITHUB_REF_NAME" jars/*/target/*-app.jar
+          --repo "$GITHUB_REPOSITORY" --title "RapidSwing $GITHUB_REF_NAME" --generate-notes

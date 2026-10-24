@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RapidSwing</title>
+<meta name="description" content="A rapid application development framework for Java Swing, targeting Java 8+.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <h1>RapidSwing</h1>
+    <p class="lead">A rapid application development framework for Java Swing, targeting Java 8 and newer:
+      data binding, validated forms, data grids, CRUD screens, sign-in, translations, charts, wizards and an
+      application generator.</p>
+    <p class="actions">
+      <a class="button primary" href="try.html">Try the demo in your browser (experimental)</a>
+      <a class="button" id="download" href="#download-section">Download</a>
+      <a class="button" id="source" href="#">Source code</a>
+    </p>
+  </div>
+</header>
+
+<main class="wrap">
+  <figure class="shot wide">
+    <img src="images/customers.png" alt="Customers screen with navigation tree, search with operators, paging, styled rows and an orders table" loading="lazy">
+    <figcaption>A complete list-and-edit screen from one builder call: search with operators, paging, row actions,
+      styled cells and a detail table. <code>CrudScreen</code>, <code>SearchPanel</code>, <code>PagingBar</code>,
+      <code>DataGrid</code>, <code>CellStyle</code>.</figcaption>
+  </figure>
+
+  <h2>What is in the box</h2>
+  <div class="cards">
+    <section class="card"><h3>rapidswing-core</h3><p>Application lifecycle, services, event bus, background tasks with
+      progress, navigation tree, quick open (Ctrl+K), F1 help, sign-in and roles, AES-256 encryption, translations,
+      queries and charts.</p></section>
+    <section class="card"><h3>rapidswing-binding &amp; forms</h3><p>Two-way binding and a fluent form builder with
+      validation, warnings, wizards and user settings.</p></section>
+    <section class="card"><h3>rapidswing-table &amp; crud</h3><p>Typed data grids with row actions, styles, compare and
+      print; CRUD screens with server-side search and paging, detail tables, and screens generated from any JavaBean.</p></section>
+    <section class="card"><h3>rapidswing-logviewer</h3><p>Several log files merged in time order, format detection,
+      regex search and follow mode.</p></section>
+    <section class="card"><h3>rapidswing-rest</h3><p>Screens for Spring Boot REST APIs from their OpenAPI document, at
+      run time or as generated source.</p></section>
+    <section class="card"><h3>rapidswing-generator</h3><p>A wizard and command line that create SDI, MDI,
+      dialog-based and Outlook-style applications.</p></section>
+  </div>
+
+  <h2>Screenshots</h2>
+  <div class="gallery">
+    <figure class="shot"><img src="images/dashboard.png" alt="Dashboard with bar, line and donut charts" loading="lazy">
+      <figcaption>Charts with tooltips and a table view. <code>BarChart</code>, <code>LineChart</code>, <code>PieChart</code></figcaption></figure>
+    <figure class="shot"><img src="images/dashboard-dark.png" alt="The dashboard in the dark theme" loading="lazy">
+      <figcaption>Light and dark themes. <code>Themes</code>, <code>ChartTheme</code></figcaption></figure>
+    <figure class="shot"><img src="images/products.png" alt="Products screen generated from a JavaBean" loading="lazy">
+      <figcaption>A screen generated from a JavaBean at run time. <code>BeanScreens</code></figcaption></figure>
+    <figure class="shot"><img src="images/customers-german.png" alt="The customers screen in German" loading="lazy">
+      <figcaption>English, German and Spanish, switchable at run time. <code>I18n</code>, <code>Formats</code></figcaption></figure>
+    <figure class="shot"><img src="images/profile-form.png" alt="Form with an error and a warning" loading="lazy">
+      <figcaption>Errors block saving; warnings do not. <code>Form</code>, <code>FieldBuilder.warn</code></figcaption></figure>
+    <figure class="shot"><img src="images/wizard.png" alt="Import wizard" loading="lazy">
+      <figcaption>Wizards with background steps and outcomes. <code>Wizard</code>, <code>Outcome</code></figcaption></figure>
+    <figure class="shot"><img src="images/picking.png" alt="Keyboard-only picking screen with function keys" loading="lazy">
+      <figcaption>Keyboard-only screens. <code>FunctionKeyBar</code></figcaption></figure>
+    <figure class="shot"><img src="images/compare.png" alt="Two customers compared side by side" loading="lazy">
+      <figcaption>Compare rows, differences marked. <code>CompareDialog</code></figcaption></figure>
+    <figure class="shot"><img src="images/logviewer.png" alt="Log viewer with two files and a regex search" loading="lazy">
+      <figcaption>Log viewer. <code>LogViewer</code>, <code>LogFormat</code></figcaption></figure>
+    <figure class="shot"><img src="images/api-explorer.png" alt="Screens for a REST API" loading="lazy">
+      <figcaption>Screens for a Spring Boot REST API. <code>ApiExplorer</code>, <code>OpenApiSpec</code></figcaption></figure>
+    <figure class="shot"><img src="images/generator-wizard.png" alt="Generator wizard" loading="lazy">
+      <figcaption>The application generator. <code>GeneratorWizard</code></figcaption></figure>
+    <figure class="shot"><img src="images/generated-outlook.png" alt="A generated Outlook-style application" loading="lazy">
+      <figcaption>A generated Outlook-style app. <code>OutlookPane</code></figcaption></figure>
+    <figure class="shot"><img src="images/generated-mdi.png" alt="A generated MDI application" loading="lazy">
+      <figcaption>A generated MDI app. <code>MdiWorkspace</code></figcaption></figure>
+    <figure class="shot"><img src="images/login.png" alt="Sign-in dialog" loading="lazy">
+      <figcaption>Sign-in with roles. <code>LoginDialog</code>, <code>Session</code></figcaption></figure>
+  </div>
+
+  <h2 id="download-section">Download and run</h2>
+  <p>Both applications need Java 8 or newer. Download them from the <a id="releases" href="#">latest release</a>, then:</p>
+  <pre><code>java -jar rapidswing-demo-0.1.0-SNAPSHOT-app.jar --app.theme=dark
+java -jar rapidswing-generator-0.1.0-SNAPSHOT-app.jar</code></pre>
+  <p>Or build from source with <code>build</code> (Windows) or <code>./build.sh</code> (Linux, macOS), and start them
+    with <code>run demo</code> and <code>run generator</code>.</p>
+  <p>Demo accounts: <code>admin</code> / <code>admin123</code>, <code>sales</code> / <code>sales123</code>,
+    <code>viewer</code> / <code>viewer123</code>.</p>
+</main>
+
+<footer class="wrap"><p>RapidSwing · Java Swing, FlatLaf and MigLayout</p></footer>
+
+<script>
+  // On GitHub Pages (user.github.io/repository/) the repository can be derived from the address.
+  (function () {
+    var owner = location.hostname.split(".")[0];
+    var repository = location.pathname.split("/")[1];
+    if (location.hostname.endsWith("github.io") && repository) {
+      var base = "https://github.com/" + owner + "/" + repository;
+      document.getElementById("source").href = base;
+      document.getElementById("releases").href = base + "/releases/latest";
+      document.getElementById("download").href = base + "/releases/latest";
+    } else {
+      document.getElementById("source").style.display = "none";
+    }
+  })();
+</script>
+</body>
+</html>

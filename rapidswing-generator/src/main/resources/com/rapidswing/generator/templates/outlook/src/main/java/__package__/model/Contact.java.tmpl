@@ -1,0 +1,82 @@
+package {{package}}.model;
+
+/** A contact. Mutable with a copy constructor, so screens can edit a copy until it is saved. */
+public class Contact {
+
+    private int id;
+    private String name = "";
+    private String email = "";
+    private String phone = "";
+    private String company = "";
+
+    public Contact() {
+    }
+
+    public Contact(int id, String name, String email, String phone, String company) {
+        this.id = id;
+        this.name = name;
+        this.email = email;
+        this.phone = phone;
+        this.company = company;
+    }
+
+    public Contact(Contact other) {
+        this(other.id, other.name, other.email, other.phone, other.company);
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public String getCompany() {
+        return company;
+    }
+
+    public void setCompany(String company) {
+        this.company = company;
+    }
+
+    /** Equal by id, so a reloaded or saved copy matches its row. */
+    @Override
+    public boolean equals(Object other) {
+        return other instanceof Contact && ((Contact) other).id == id;
+    }
+
+    @Override
+    public int hashCode() {
+        return Integer.hashCode(id);
+    }
+
+    @Override
+    public String toString() {
+        return name;
+    }
+}

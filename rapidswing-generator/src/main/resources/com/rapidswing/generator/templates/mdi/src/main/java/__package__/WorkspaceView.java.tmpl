@@ -1,0 +1,96 @@
+package {{package}};
+
+import com.rapidswing.app.AppContext;
+import com.rapidswing.ui.AbstractView;
+import com.rapidswing.ui.MdiWorkspace;
+import com.rapidswing.ui.View;
+
+import javax.swing.JFileChooser;
+import javax.swing.JInternalFrame;
+import java.awt.BorderLayout;
+import java.nio.file.Path;
+
+/** The MDI workspace: each document is a window inside the main window. */
+public class WorkspaceView extends AbstractView {
+
+    private final AppContext ctx;
+    private final MdiWorkspace workspace = new MdiWorkspace();
+
+    public WorkspaceView(AppContext ctx) {
+        super(ctx.i18n().get("app.title"));
+        this.ctx = ctx;
+        add(workspace, BorderLayout.CENTER);
+    }
+
+    public MdiWorkspace getWorkspace() {
+        return workspace;
+    }
+
+    /** Opens a new, empty document window. */
+    public DocumentView newDocument() {
+        JInternalFrame[] window = new JInternalFrame[1];
+        DocumentView document = new DocumentView(ctx, title -> {
+            if (window[0] != null) {
+                window[0].setTitle(title);
+            }
+        });
+        window[0] = workspace.open(document);
+        document.onShow();
+        return document;
+    }
+
+    /** Opens a file in a new document window. */
+    public void open() {
+        JFileChooser chooser = new JFileChooser();
+        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            Path path = chooser.getSelectedFile().toPath();
+            newDocument().load(path);
+        }
+    }
+
+    /** The document window with focus, or {@code null}. */
+    public DocumentView activeDocument() {
+        JInternalFrame window = workspace.activeDocument().get();
+        return window == null ? null : (DocumentView) window.getClientProperty(View.class);
+    }
+
+    public void save() {
+        DocumentView document = activeDocument();
+        if (document != null) {
+            document.save();
+        }
+    }
+
+    public void saveAs() {
+        DocumentView document = activeDocument();
+        if (document != null) {
+            document.saveAs();
+        }
+    }
+
+    public void closeActive() {
+        JInternalFrame window = workspace.activeDocument().get();
+        if (window != null) {
+            workspace.close(window);
+        }
+    }
+
+    /** Closes every document without asking, e.g. after another user signed in. */
+    public void reset() {
+        for (JInternalFrame window : workspace.documents()) {
+            ((DocumentView) window.getClientProperty(View.class)).reset();
+        }
+        workspace.closeAll();
+    }
+
+    /** Asks about each document with unsaved changes. */
+    @Override
+    public boolean canLeave() {
+        for (JInternalFrame window : workspace.documents()) {
+            if (!((View) window.getClientProperty(View.class)).canLeave()) {
+                return false;
+            }
+        }
+        return true;
+    }
+}

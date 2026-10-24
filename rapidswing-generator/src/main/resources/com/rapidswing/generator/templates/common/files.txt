@@ -1,0 +1,11 @@
+# Templates used by every application type: [if:flag ]source[ -> target]
+pom.xml.tmpl
+README.md.tmpl
+gitignore.tmpl -> .gitignore
+src/main/resources/app.properties.tmpl
+src/main/resources/messages.properties.tmpl
+if:i18n src/main/resources/messages_de.properties.tmpl
+if:i18n src/main/resources/messages_es.properties.tmpl
+src/main/java/__package__/AppSupport.java.tmpl
+if:documents src/main/java/__package__/DocumentView.java.tmpl
+src/test/java/__package__/AppSmokeTest.java.tmpl

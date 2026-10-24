@@ -1,0 +1,33 @@
+package {{package}}.model;
+
+import java.time.LocalDate;
+
+/** A to-do item. */
+public class TaskItem {
+
+    private final String title;
+    private final LocalDate due;
+    private boolean done;
+
+    public TaskItem(String title, LocalDate due, boolean done) {
+        this.title = title;
+        this.due = due;
+        this.done = done;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public LocalDate getDue() {
+        return due;
+    }
+
+    public boolean isDone() {
+        return done;
+    }
+
+    public void setDone(boolean done) {
+        this.done = done;
+    }
+}

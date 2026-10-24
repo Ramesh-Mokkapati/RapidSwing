@@ -1,0 +1,48 @@
+package {{package}}.model;
+
+import com.rapidswing.crud.CrudRepository;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+
+/**
+ * Contacts kept in memory, starting with the sample data. Replace it with a repository for your database or
+ * REST API: the screens do not change.
+ */
+public class ContactRepository implements CrudRepository<Contact> {
+
+    private final List<Contact> contacts = new ArrayList<>();
+    private final AtomicInteger nextId = new AtomicInteger(1);
+
+    public ContactRepository() {
+        for (Contact contact : SampleData.contacts()) {
+            contact.setId(nextId.getAndIncrement());
+            contacts.add(contact);
+        }
+    }
+
+    @Override
+    public synchronized List<Contact> findAll() {
+        List<Contact> copies = new ArrayList<>();
+        contacts.forEach(contact -> copies.add(new Contact(contact)));
+        return copies;
+    }
+
+    @Override
+    public synchronized Contact save(Contact contact) {
+        Contact stored = new Contact(contact);
+        if (stored.getId() == 0) {
+            stored.setId(nextId.getAndIncrement());
+            contacts.add(stored);
+        } else {
+            contacts.set(contacts.indexOf(stored), stored);
+        }
+        return new Contact(stored);
+    }
+
+    @Override
+    public synchronized void delete(Contact contact) {
+        contacts.remove(contact);
+    }
+}

@@ -1,0 +1,47 @@
+# {{appName}}
+
+{{#if sdi}}A single-document (SDI) desktop application{{/if}}{{#if mdi}}A multiple-document (MDI) desktop application{{/if}}{{#if dialog}}A dialog-based desktop application{{/if}}{{#if outlook}}An Outlook-style desktop application{{/if}} built with RapidSwing on Java 8.
+
+## Build and run
+
+RapidSwing {{rapidswingVersion}} must be in your local Maven repository: run `mvn install` in the RapidSwing
+folder first.
+
+```bash
+mvn verify
+java -jar target/{{artifactId}}-1.0.0-SNAPSHOT-app.jar
+```
+
+## Where things are
+
+| File | What it does |
+|---|---|
+| `App.java` | Starts the application and builds its menus |
+| `{{mainView}}.java` | The main window's content |
+| `AppSupport.java` | Menus and features shared by the application |
+| `src/main/resources/app.properties` | Title, theme and size of the window |
+| `src/main/resources/messages*.properties` | All texts shown to the user |
+| `AppSmokeTest.java` | A test that opens the main view, using `rapidswing-testing` |
+{{#if rest}}
+| `rest/` | Screens for the REST API, generated from its OpenAPI document |
+{{/if}}
+{{#if login}}
+
+## Sign-in
+
+The application has one account, `admin`. Its password was shown once when the project was generated; only a
+hash is stored, in `AppSupport.java`. To set a new password, generate a hash:
+
+```bash
+java -cp rapidswing-core-{{rapidswingVersion}}.jar com.rapidswing.security.PasswordHasher
+```
+
+Signing in to a desktop client protects the user interface only. Protect the data itself on the server.
+{{/if}}
+{{#if rest}}
+
+## REST API
+
+The API's base URL is `api.url` in `app.properties`. The classes in `rest/` were generated from the API's
+OpenAPI document and are yours to change.
+{{/if}}

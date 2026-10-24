@@ -1,0 +1,78 @@
+package {{package}};
+
+import com.rapidswing.app.AppContext;
+import com.rapidswing.forms.Form;
+import com.rapidswing.forms.Validators;
+import com.rapidswing.i18n.I18n;
+import com.rapidswing.property.Property;
+import com.rapidswing.ui.AbstractView;
+import com.rapidswing.ui.AppAction;
+
+import javax.swing.BorderFactory;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import java.awt.BorderLayout;
+import java.awt.Font;
+import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
+import java.text.NumberFormat;
+
+/**
+ * The application's single window, built around one form. The sample calculates a loan's monthly payment:
+ * replace the fields and {@link #calculate()} with your own.
+ */
+public class MainDialogView extends AbstractView {
+
+    private final I18n i18n;
+    private final Property<BigDecimal> amount = Property.of(new BigDecimal("250000"));
+    private final Property<BigDecimal> rate = Property.of(new BigDecimal("6.5"));
+    private final Property<Integer> years = Property.of(25);
+    private final JLabel result = new JLabel(" ");
+    private final Form form;
+
+    public MainDialogView(AppContext ctx) {
+        super(ctx.i18n().get("app.title"));
+        this.i18n = ctx.i18n();
+        result.setFont(result.getFont().deriveFont(Font.BOLD));
+
+        form = Form.builder()
+                .decimal(i18n.get("loan.amount"), amount).required().validate(Validators.positive())
+                .decimal(i18n.get("loan.rate"), rate).required()
+                    .validate(Validators.range(BigDecimal.ZERO, new BigDecimal("100")))
+                .spinner(i18n.get("loan.years"), years, 1, 50)
+                .custom(i18n.get("loan.payment"), result)
+                .buttons(AppAction.of(i18n.get("loan.calculate"), this::calculate))
+                .build();
+
+        JPanel content = new JPanel(new BorderLayout());
+        content.setBorder(BorderFactory.createEmptyBorder(20, 24, 20, 24));
+        content.add(form.getComponent(), BorderLayout.NORTH);
+        add(content, BorderLayout.CENTER);
+        calculate();
+    }
+
+    /** The monthly payment of an annuity loan: P * r / (1 - (1 + r)^-n), with r the monthly rate. */
+    public void calculate() {
+        if (!form.validate()) {
+            result.setText(" ");
+            return;
+        }
+        int months = years.get() * 12;
+        BigDecimal monthlyRate = rate.get().divide(new BigDecimal("1200"), MathContext.DECIMAL64);
+        BigDecimal payment;
+        if (monthlyRate.signum() == 0) {
+            payment = amount.get().divide(BigDecimal.valueOf(months), MathContext.DECIMAL64);
+        } else {
+            BigDecimal growth = BigDecimal.ONE.add(monthlyRate).pow(months, MathContext.DECIMAL64);
+            BigDecimal factor = BigDecimal.ONE.subtract(BigDecimal.ONE.divide(growth, MathContext.DECIMAL64));
+            payment = amount.get().multiply(monthlyRate).divide(factor, MathContext.DECIMAL64);
+        }
+        NumberFormat money = NumberFormat.getNumberInstance(i18n.getLocale());
+        result.setText(i18n.get("loan.result", money.format(payment.setScale(2, RoundingMode.HALF_UP))));
+    }
+
+    public String getResultText() {
+        return result.getText();
+    }
+}

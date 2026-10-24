@@ -1,0 +1,169 @@
+package {{package}};
+
+import com.rapidswing.app.AppContext;
+import com.rapidswing.i18n.I18n;
+import com.rapidswing.ui.AbstractView;
+
+import javax.swing.JFileChooser;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import java.awt.BorderLayout;
+import java.awt.Font;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.function.Consumer;
+
+/**
+ * A plain text document: edit, open and save, with protection for unsaved changes. Files are read and written
+ * in background tasks, as UTF-8.
+ */
+public class DocumentView extends AbstractView {
+
+    private final AppContext ctx;
+    private final I18n i18n;
+    private final JTextArea editor = new JTextArea();
+    private final Consumer<String> titleChanged;
+    private Path file;
+    private boolean dirty;
+    private boolean loading;
+
+    /** A document shown as the main window's content: its name goes into the window title. */
+    public DocumentView(AppContext ctx) {
+        this(ctx, title -> ctx.mainFrame().setTitle(title + " - " + ctx.i18n().get("app.title")));
+    }
+
+    /** @param titleChanged receives "name" or "name *" (unsaved changes) whenever that changes */
+    public DocumentView(AppContext ctx, Consumer<String> titleChanged) {
+        super(ctx.i18n().get("document.untitled"));
+        this.ctx = ctx;
+        this.i18n = ctx.i18n();
+        this.titleChanged = titleChanged;
+        editor.setFont(new Font(Font.MONOSPACED, Font.PLAIN, editor.getFont().getSize()));
+        editor.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                changed();
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                changed();
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                changed();
+            }
+        });
+        add(new JScrollPane(editor), BorderLayout.CENTER);
+    }
+
+    public JTextArea getEditor() {
+        return editor;
+    }
+
+    public boolean isDirty() {
+        return dirty;
+    }
+
+    /** The file name, or "Untitled". */
+    public String getDocumentName() {
+        return file == null ? i18n.get("document.untitled") : file.getFileName().toString();
+    }
+
+    /** Starts an empty document, after asking about unsaved changes. */
+    public void newDocument() {
+        if (canLeave()) {
+            reset();
+        }
+    }
+
+    /** Empties the document without asking, e.g. after another user signed in. */
+    public void reset() {
+        loading = true;
+        editor.setText("");
+        loading = false;
+        file = null;
+        setDirty(false);
+    }
+
+    public void open() {
+        if (!canLeave()) {
+            return;
+        }
+        JFileChooser chooser = new JFileChooser();
+        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            load(chooser.getSelectedFile().toPath());
+        }
+    }
+
+    public void load(Path path) {
+        ctx.tasks().call(() -> new String(Files.readAllBytes(path), StandardCharsets.UTF_8))
+                .onSuccess(text -> {
+                    loading = true;
+                    editor.setText(text);
+                    editor.setCaretPosition(0);
+                    loading = false;
+                    file = path;
+                    setDirty(false);
+                })
+                .onError(e -> ctx.dialogs().error(i18n.get("document.openFailed", path.getFileName()), e))
+                .start();
+    }
+
+    public void save() {
+        if (file == null) {
+            saveAs();
+        } else {
+            write(file);
+        }
+    }
+
+    public void saveAs() {
+        JFileChooser chooser = new JFileChooser();
+        if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            write(chooser.getSelectedFile().toPath());
+        }
+    }
+
+    /** Writes the text to the file in the background. */
+    public void write(Path path) {
+        String text = editor.getText();
+        ctx.tasks().call(() -> Files.write(path, text.getBytes(StandardCharsets.UTF_8)))
+                .onSuccess(written -> {
+                    file = path;
+                    setDirty(false);
+                    ctx.mainFrame().statusBar().setMessage(i18n.get("document.saved", getDocumentName()));
+                })
+                .onError(e -> ctx.dialogs().error(i18n.get("document.saveFailed", path.getFileName()), e))
+                .start();
+    }
+
+    @Override
+    public void onShow() {
+        titleChanged.accept(title());
+    }
+
+    @Override
+    public boolean canLeave() {
+        return !dirty || ctx.dialogs().confirm(i18n.get("document.discard", getDocumentName()));
+    }
+
+    private void changed() {
+        if (!loading && !dirty) {
+            setDirty(true);
+        }
+    }
+
+    private void setDirty(boolean isDirty) {
+        dirty = isDirty;
+        titleChanged.accept(title());
+    }
+
+    private String title() {
+        return getDocumentName() + (dirty ? " *" : "");
+    }
+}

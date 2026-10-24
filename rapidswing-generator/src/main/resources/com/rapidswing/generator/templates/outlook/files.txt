@@ -1,0 +1,8 @@
+# Outlook-style application
+src/main/java/__package__/App.java.tmpl
+src/main/java/__package__/OutlookView.java.tmpl
+src/main/java/__package__/model/Message.java.tmpl
+src/main/java/__package__/model/Contact.java.tmpl
+src/main/java/__package__/model/ContactRepository.java.tmpl
+src/main/java/__package__/model/TaskItem.java.tmpl
+src/main/java/__package__/model/SampleData.java.tmpl

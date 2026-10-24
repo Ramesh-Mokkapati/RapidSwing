@@ -1,0 +1,3 @@
+# Dialog-based application
+src/main/java/__package__/App.java.tmpl
+src/main/java/__package__/MainDialogView.java.tmpl

@@ -1,0 +1,148 @@
+package {{package}};
+
+import com.rapidswing.app.AppContext;
+import com.rapidswing.crud.CrudScreen;
+import com.rapidswing.forms.Validators;
+import com.rapidswing.i18n.I18n;
+import com.rapidswing.table.BeanTableModel;
+import com.rapidswing.table.DataGrid;
+import com.rapidswing.ui.AbstractView;
+import com.rapidswing.ui.OutlookPane;
+import {{package}}.model.Contact;
+import {{package}}.model.ContactRepository;
+import {{package}}.model.Message;
+import {{package}}.model.SampleData;
+import {{package}}.model.TaskItem;
+
+import javax.swing.BorderFactory;
+import javax.swing.JLabel;
+import javax.swing.JList;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+import javax.swing.ListSelectionModel;
+import java.awt.BorderLayout;
+import java.awt.Font;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.FormatStyle;
+
+/**
+ * The Outlook-style main window: Mail (folders, message list and reading pane), Contacts and Tasks.
+ * Each section is ordinary RapidSwing components: replace the sample data with your own.
+ */
+public class OutlookView extends AbstractView {
+
+    private final I18n i18n;
+    private final OutlookPane outlook = new OutlookPane();
+    private final DataGrid<Message> messages;
+    private final JTextArea readingPane = new JTextArea();
+    private final CrudScreen<Contact> contacts;
+
+    public OutlookView(AppContext ctx) {
+        super(ctx.i18n().get("app.title"));
+        this.i18n = ctx.i18n();
+        DateTimeFormatter dateTime = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT).withLocale(i18n.getLocale());
+        DateTimeFormatter date = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(i18n.getLocale());
+
+        // Mail: folders on the left, messages with a reading pane on the right.
+        JList<String> folders = new JList<>(SampleData.FOLDERS.toArray(new String[0]));
+        folders.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        folders.setCellRenderer((list, folder, index, selected, focus) -> {
+            JLabel label = new JLabel(i18n.get("outlook." + folder));
+            label.setOpaque(true);
+            label.setBorder(BorderFactory.createEmptyBorder(6, 12, 6, 12));
+            label.setBackground(selected ? list.getSelectionBackground() : list.getBackground());
+            label.setForeground(selected ? list.getSelectionForeground() : list.getForeground());
+            return label;
+        });
+        messages = new DataGrid<>(BeanTableModel.builder(Message.class)
+                .column(i18n.get("outlook.from"), String.class, Message::getFrom).width(140)
+                .column(i18n.get("outlook.subject"), String.class, Message::getSubject).width(260)
+                .column(i18n.get("outlook.received"), LocalDateTime.class, Message::getReceived)
+                    .format(dateTime::format).width(130)
+                .build());
+        readingPane.setEditable(false);
+        readingPane.setLineWrap(true);
+        readingPane.setWrapStyleWord(true);
+        readingPane.setBorder(BorderFactory.createEmptyBorder(12, 14, 12, 14));
+        readingPane.setFont(readingPane.getFont().deriveFont(Font.PLAIN));
+        messages.selectedItem().onChange(this::read);
+        folders.addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting() && folders.getSelectedValue() != null) {
+                messages.setRows(SampleData.messages(folders.getSelectedValue()));
+                // Like Outlook, open the newest message in the reading pane.
+                if (!messages.getModel().getRows().isEmpty()) {
+                    messages.select(messages.getModel().getRow(0));
+                }
+            }
+        });
+        folders.setSelectedIndex(0);
+        messages.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        outlook.addSection("mail", i18n.get("outlook.mail"), null, folders,
+                OutlookPane.withReadingPane(messages, new JScrollPane(readingPane), true));
+
+        // Contacts: a complete list-and-edit screen.
+        contacts = CrudScreen.builder(Contact.class)
+                .context(ctx)
+                .names(i18n.get("contact.singular"), i18n.get("contact.plural"))
+                .repository(new ContactRepository())
+                .newItem(Contact::new)
+                .copy(Contact::new)
+                .itemName(Contact::getName)
+                .columns(table -> table
+                        .column(i18n.get("contact.name"), String.class, Contact::getName).width(160)
+                        .column(i18n.get("contact.email"), String.class, Contact::getEmail).width(200)
+                        .column(i18n.get("contact.phone"), String.class, Contact::getPhone).width(130)
+                        .column(i18n.get("contact.company"), String.class, Contact::getCompany).width(140))
+                .form((form, edit) -> form
+                        .text(i18n.get("contact.name"), edit.property(Contact::getName, Contact::setName)).required()
+                        .text(i18n.get("contact.email"), edit.property(Contact::getEmail, Contact::setEmail))
+                            .validate(Validators.email())
+                        .text(i18n.get("contact.phone"), edit.property(Contact::getPhone, Contact::setPhone))
+                        .text(i18n.get("contact.company"), edit.property(Contact::getCompany, Contact::setCompany)))
+                .build();
+        outlook.addSection("contacts", i18n.get("outlook.contacts"), null, null, contacts);
+
+        // Tasks: a checklist; ticking "Done" updates the item.
+        DataGrid<TaskItem> tasks = new DataGrid<>(BeanTableModel.builder(TaskItem.class)
+                .column(i18n.get("outlook.task"), String.class, TaskItem::getTitle).width(300)
+                .column(i18n.get("outlook.due"), LocalDate.class, TaskItem::getDue).format(date::format).width(120)
+                .column(i18n.get("outlook.done"), Boolean.class, TaskItem::isDone).editable(TaskItem::setDone).width(60)
+                .build());
+        tasks.setRows(SampleData.tasks());
+        tasks.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        outlook.addSection("tasks", i18n.get("outlook.tasks"), null, null, tasks);
+
+        outlook.currentSection().onChange(section -> {
+            if ("contacts".equals(section)) {
+                contacts.onShow();
+            }
+        });
+        add(outlook, BorderLayout.CENTER);
+    }
+
+    public OutlookPane getOutlook() {
+        return outlook;
+    }
+
+    public void showSection(String id) {
+        outlook.showSection(id);
+    }
+
+    /** Unsaved contact changes are protected when leaving. */
+    @Override
+    public boolean canLeave() {
+        return contacts.canLeave();
+    }
+
+    private void read(Message message) {
+        if (message == null) {
+            readingPane.setText("");
+            return;
+        }
+        readingPane.setText(message.getSubject() + "\n" + i18n.get("outlook.from") + ": " + message.getFrom()
+                + "\n\n" + message.getBody());
+        readingPane.setCaretPosition(0);
+    }
+}
