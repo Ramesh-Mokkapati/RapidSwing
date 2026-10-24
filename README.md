@@ -2,6 +2,20 @@
 
 A rapid application development framework for Java Swing, targeting **Java 8+**.
 
+**Website:** [ramesh-mokkapati.github.io/RapidSwing](https://ramesh-mokkapati.github.io/RapidSwing/): screenshots,
+downloads, and the demo app running in the browser
+([try it](https://ramesh-mokkapati.github.io/RapidSwing/try.html), experimental).
+
+Sign in to the demo with one of these accounts. Each one shows what a different role may do:
+
+| User name | Password | Role | What it can do |
+|---|---|---|---|
+| `admin` | `admin123` | Administrator | Everything, including deleting customers and products |
+| `sales` | `sales123` | Sales | Create and edit customers and products, import customers, profile form, picking, REST API explorer |
+| `viewer` | `viewer123` | Viewer | Dashboard; customers and products read-only |
+
+These accounts exist only in the demo app; real applications use their own `Authenticator`.
+
 ![The demo app: navigation tree and a dashboard with charts](docs/images/dashboard.png)
 
 ## Modules
@@ -214,7 +228,8 @@ Two GitHub Actions workflows run once the project is on GitHub:
 - [`.github/workflows/build.yml`](.github/workflows/build.yml) builds and tests on Linux and Windows with Java 8
   and 17 for every push and pull request. It keeps the demo and generator jars as build artifacts. Pushing a tag
   such as `v0.1.0` publishes them as a GitHub release.
-- [`.github/workflows/pages.yml`](.github/workflows/pages.yml) publishes a demonstration website to GitHub Pages:
+- [`.github/workflows/pages.yml`](.github/workflows/pages.yml) publishes the demonstration website to GitHub Pages,
+  at [ramesh-mokkapati.github.io/RapidSwing](https://ramesh-mokkapati.github.io/RapidSwing/):
   a page with screenshots and downloads ([`site/index.html`](site/index.html)), and the demo app running in the
   browser ([`site/try.html`](site/try.html)). Turn it on once under *Settings > Pages > Source: GitHub Actions*.
 
