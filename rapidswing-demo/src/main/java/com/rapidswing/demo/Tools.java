@@ -76,9 +76,9 @@ final class Tools {
             ctx.mainFrame().statusBar().setMessage(i18n.get("api.starting"));
             ctx.tasks().call(() -> {
                 if (sampleApi == null) {
-                    sampleApi = SampleApiServer.start(0);
+                    sampleApi = startSampleApi();
                 }
-                RestClient client = new RestClient(sampleApi.getBaseUrl());
+                RestClient client = sampleApi.client();
                 return new Object[]{client, OpenApiSpec.fetch(client)};
             }).onSuccess(loaded -> {
                 RestClient client = (RestClient) loaded[0];
@@ -88,6 +88,18 @@ final class Tools {
                 ctx.mainFrame().statusBar().setMessage(i18n.get("api.ready", spec.getTitle(), client.getBaseUrl()));
             }).start();
         });
+    }
+
+    /**
+     * Over HTTP where the JVM can listen on a socket; in-process otherwise, e.g. in the browser (CheerpJ), where
+     * opening a server socket fails with a linkage error rather than an IOException.
+     */
+    private static SampleApiServer startSampleApi() {
+        try {
+            return SampleApiServer.start(0);
+        } catch (RuntimeException | LinkageError e) {
+            return SampleApiServer.inProcess();
+        }
     }
 
     static void shutdown() {

@@ -49,14 +49,49 @@ public class RestClient {
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
             .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
 
+    /**
+     * Carries one request somewhere other than over HTTP, e.g. to an API in the same process where sockets are
+     * unavailable (such as Java running in a browser).
+     */
+    public interface Transport {
+        /** Answers the request; {@code body} is null without a request body. */
+        Response exchange(String method, String url, Map<String, String> headers, byte[] body) throws IOException;
+    }
+
+    /** A status code and a response body (empty for none). */
+    public static final class Response {
+        private final int status;
+        private final byte[] body;
+
+        public Response(int status, byte[] body) {
+            this.status = status;
+            this.body = body == null ? new byte[0] : body;
+        }
+
+        public int getStatus() {
+            return status;
+        }
+
+        public byte[] getBody() {
+            return body;
+        }
+    }
+
     private final String baseUrl;
+    private final Transport transport;
     private final Map<String, String> headers = new LinkedHashMap<>();
     private int connectTimeoutMillis = 10_000;
     private int readTimeoutMillis = 30_000;
 
     public RestClient(String baseUrl) {
+        this(baseUrl, null);
+    }
+
+    /** Sends requests through the given transport instead of HTTP; null means HTTP. */
+    public RestClient(String baseUrl, Transport transport) {
         String url = Objects.requireNonNull(baseUrl, "baseUrl").trim();
         this.baseUrl = url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
+        this.transport = transport;
         headers.put("Accept", "application/json");
     }
 
@@ -157,6 +192,9 @@ public class RestClient {
     private JsonNode send(String method, String path, Object body) {
         String url = path.startsWith("http://") || path.startsWith("https://") ? path
                 : baseUrl + (path.startsWith("/") ? path : "/" + path);
+        if (transport != null) {
+            return sendVia(transport, method, url, body);
+        }
         HttpURLConnection connection = null;
         try {
             connection = (HttpURLConnection) new URL(url).openConnection();
@@ -186,6 +224,25 @@ public class RestClient {
             if (connection != null) {
                 connection.disconnect();
             }
+        }
+    }
+
+    private JsonNode sendVia(Transport transport, String method, String url, Object body) {
+        try {
+            Map<String, String> requestHeaders = new LinkedHashMap<>(headers);
+            byte[] json = null;
+            if (body != null) {
+                json = JSON.writeValueAsBytes(body);
+                requestHeaders.put("Content-Type", "application/json");
+            }
+            Response response = transport.exchange(method, url, requestHeaders, json);
+            if (response.getStatus() >= 400) {
+                throw new RestException(response.getStatus(),
+                        errorMessage(response.getStatus(), method, url, response.getBody()));
+            }
+            return response.getBody().length == 0 ? JSON.nullNode() : JSON.readTree(response.getBody());
+        } catch (IOException e) {
+            throw new UncheckedIOException(method + " " + url + " failed: " + e.getMessage(), e);
         }
     }
 

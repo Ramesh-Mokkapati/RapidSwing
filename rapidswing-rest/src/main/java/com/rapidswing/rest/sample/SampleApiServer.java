@@ -15,6 +15,7 @@ import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.URI;
 import java.time.Instant;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -30,18 +31,21 @@ import java.util.regex.Pattern;
  * document at {@code /v3/api-docs} and in-memory CRUD endpoints for customers, products (no delete) and orders
  * (read-only, as a Spring Data page), answering errors in Spring's JSON error format.
  * <p>
- * It listens on the loopback address only. It is not a server to deploy.
+ * It listens on the loopback address only, or on no socket at all with {@link #inProcess()}. It is not a server
+ * to deploy.
  */
 public final class SampleApiServer implements AutoCloseable {
 
     private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
     private static final Pattern ITEM = Pattern.compile("^/api/(customers|products)/(\\d+)$");
+    private static final String IN_PROCESS_URL = "http://sample-api.in-process";
 
     private final HttpServer server;
     private final String spec;
     private final Map<String, Map<Long, ObjectNode>> stores = new LinkedHashMap<>();
     private final AtomicLong nextId = new AtomicLong(1);
 
+    /** Without a server, the API answers only {@link #client()} calls, in this process. */
     private SampleApiServer(HttpServer server) {
         this.server = server;
         this.spec = resource("shop-api.json").replace("${serverUrl}", getBaseUrl());
@@ -49,8 +53,10 @@ public final class SampleApiServer implements AutoCloseable {
         stores.put("products", new LinkedHashMap<>());
         stores.put("orders", new LinkedHashMap<>());
         seed();
-        server.createContext("/", this::handle);
-        server.start();
+        if (server != null) {
+            server.createContext("/", this::handle);
+            server.start();
+        }
     }
 
     /** Starts on the given port of the loopback address; 0 picks a free port. */
@@ -62,13 +68,36 @@ public final class SampleApiServer implements AutoCloseable {
         }
     }
 
+    /**
+     * The same API without a socket, for where servers cannot listen (such as Java running in a browser).
+     * Only {@link #client()} reaches it.
+     */
+    public static SampleApiServer inProcess() {
+        return new SampleApiServer(null);
+    }
+
+    public boolean isInProcess() {
+        return server == null;
+    }
+
     public String getBaseUrl() {
-        return "http://127.0.0.1:" + server.getAddress().getPort();
+        return server == null ? IN_PROCESS_URL : "http://127.0.0.1:" + server.getAddress().getPort();
+    }
+
+    /** A client for this API: over HTTP, or straight to it when it runs {@link #inProcess()}. */
+    public RestClient client() {
+        if (server != null) {
+            return new RestClient(getBaseUrl());
+        }
+        return new RestClient(getBaseUrl(), (method, url, headers, body) ->
+                respond(method, URI.create(url).getPath(), body == null ? new byte[0] : body));
     }
 
     @Override
     public void close() {
-        server.stop(0);
+        if (server != null) {
+            server.stop(0);
+        }
     }
 
     private void seed() {
@@ -108,82 +137,88 @@ public final class SampleApiServer implements AutoCloseable {
         return item;
     }
 
-    private synchronized void handle(HttpExchange exchange) throws IOException {
-        String method = exchange.getRequestMethod();
+    private void handle(HttpExchange exchange) throws IOException {
         String path = exchange.getRequestURI().getPath();
+        RestClient.Response response = respond(exchange.getRequestMethod(), path, readAll(exchange.getRequestBody()));
+        byte[] bytes = response.getBody();
+        exchange.getResponseHeaders().set("Content-Type", "application/json");
+        exchange.sendResponseHeaders(response.getStatus(), bytes.length == 0 ? -1 : bytes.length);
+        try (OutputStream out = exchange.getResponseBody()) {
+            out.write(bytes);
+        }
+    }
+
+    private synchronized RestClient.Response respond(String method, String path, byte[] body) {
         try {
             if ("/v3/api-docs".equals(path) && "GET".equals(method)) {
-                send(exchange, 200, spec);
-                return;
+                return ok(spec);
             }
             if ("/api/health".equals(path) && "GET".equals(method)) {
-                send(exchange, 200, "{\"status\":\"UP\"}");
-                return;
+                return ok("{\"status\":\"UP\"}");
             }
             if ("/api/orders".equals(path) && "GET".equals(method)) {
                 ObjectNode page = RestClient.JSON.createObjectNode();
                 ArrayNode content = page.putArray("content");
                 stores.get("orders").values().forEach(content::add);
                 page.put("totalElements", content.size());
-                send(exchange, 200, page.toString());
-                return;
+                return ok(page.toString());
             }
             Matcher item = ITEM.matcher(path);
             if (path.equals("/api/customers") || path.equals("/api/products")) {
-                collection(exchange, method, path.substring("/api/".length()));
+                return collection(method, path, path.substring("/api/".length()), body);
             } else if (item.matches()) {
-                item(exchange, method, item.group(1), Long.parseLong(item.group(2)));
+                return item(method, path, item.group(1), Long.parseLong(item.group(2)), body);
             } else {
-                error(exchange, 404, "Not Found", "No endpoint " + method + " " + path);
+                return error(404, "Not Found", "No endpoint " + method + " " + path, path);
             }
         } catch (IOException e) {
-            error(exchange, 400, "Bad Request", "Malformed JSON: " + e.getMessage());
+            return error(400, "Bad Request", "Malformed JSON: " + e.getMessage(), path);
         }
     }
 
-    private void collection(HttpExchange exchange, String method, String store) throws IOException {
+    private RestClient.Response collection(String method, String path, String store, byte[] body)
+            throws IOException {
         if ("GET".equals(method)) {
             ArrayNode list = RestClient.JSON.createArrayNode();
             stores.get(store).values().forEach(list::add);
-            send(exchange, 200, list.toString());
+            return ok(list.toString());
         } else if ("POST".equals(method)) {
-            ObjectNode body = readBody(exchange);
-            String problem = validate(store, body);
+            ObjectNode object = readBody(body);
+            String problem = validate(store, object);
             if (problem != null) {
-                error(exchange, 400, "Bad Request", problem);
-                return;
+                return error(400, "Bad Request", problem, path);
             }
-            send(exchange, 200, insert(store, body).toString());
+            return ok(insert(store, object).toString());
         } else {
-            error(exchange, 405, "Method Not Allowed", "Request method '" + method + "' is not supported");
+            return error(405, "Method Not Allowed", "Request method '" + method + "' is not supported", path);
         }
     }
 
-    private void item(HttpExchange exchange, String method, String store, long id) throws IOException {
+    private RestClient.Response item(String method, String path, String store, long id, byte[] body)
+            throws IOException {
         ObjectNode existing = stores.get(store).get(id);
         boolean deleteAllowed = "customers".equals(store);
         if (!"PUT".equals(method) && !"GET".equals(method) && !("DELETE".equals(method) && deleteAllowed)) {
-            error(exchange, 405, "Method Not Allowed", "Request method '" + method + "' is not supported");
+            return error(405, "Method Not Allowed", "Request method '" + method + "' is not supported", path);
         } else if (existing == null) {
-            error(exchange, 404, "Not Found", store.substring(0, store.length() - 1) + " " + id + " not found");
+            return error(404, "Not Found", store.substring(0, store.length() - 1) + " " + id + " not found", path);
         } else if ("GET".equals(method)) {
-            send(exchange, 200, existing.toString());
+            return ok(existing.toString());
         } else if ("DELETE".equals(method)) {
             stores.get(store).remove(id);
-            send(exchange, 200, "");
+            return ok("");
         } else {
-            ObjectNode body = readBody(exchange);
-            String problem = validate(store, body);
+            ObjectNode object = readBody(body);
+            String problem = validate(store, object);
             if (problem != null) {
-                error(exchange, 400, "Bad Request", problem);
-                return;
+                return error(400, "Bad Request", problem, path);
             }
-            body.put("id", id);
-            if (existing.has("address") && !body.has("address")) {
-                body.set("address", existing.get("address"));
+            object.put("id", id);
+            if (existing.has("address") && !object.has("address")) {
+                object.set("address", existing.get("address"));
             }
-            stores.get(store).put(id, body);
-            send(exchange, 200, body.toString());
+            stores.get(store).put(id, object);
+            return ok(object.toString());
         }
     }
 
@@ -205,8 +240,8 @@ public final class SampleApiServer implements AutoCloseable {
         return null;
     }
 
-    private static ObjectNode readBody(HttpExchange exchange) throws IOException {
-        JsonNode body = RestClient.JSON.readTree(readAll(exchange.getRequestBody()));
+    private static ObjectNode readBody(byte[] bytes) throws IOException {
+        JsonNode body = RestClient.JSON.readTree(bytes);
         if (!(body instanceof ObjectNode)) {
             throw new IOException("Expected a JSON object");
         }
@@ -215,21 +250,16 @@ public final class SampleApiServer implements AutoCloseable {
         return object;
     }
 
-    private static void error(HttpExchange exchange, int status, String error, String message) throws IOException {
+    private static RestClient.Response error(int status, String error, String message, String path) {
         ObjectNode body = RestClient.JSON.createObjectNode()
                 .put("timestamp", Instant.now().toString())
                 .put("status", status).put("error", error).put("message", message)
-                .put("path", exchange.getRequestURI().getPath());
-        send(exchange, status, body.toString());
+                .put("path", path);
+        return new RestClient.Response(status, body.toString().getBytes(StandardCharsets.UTF_8));
     }
 
-    private static void send(HttpExchange exchange, int status, String body) throws IOException {
-        byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
-        exchange.getResponseHeaders().set("Content-Type", "application/json");
-        exchange.sendResponseHeaders(status, bytes.length == 0 ? -1 : bytes.length);
-        try (OutputStream out = exchange.getResponseBody()) {
-            out.write(bytes);
-        }
+    private static RestClient.Response ok(String body) {
+        return new RestClient.Response(200, body.getBytes(StandardCharsets.UTF_8));
     }
 
     private static byte[] readAll(InputStream in) throws IOException {
